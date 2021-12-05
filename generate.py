@@ -54,20 +54,10 @@ def main():
     dst_dataset = Dataset(args.dst_root, transform=transform)
 
     src_loader = DataLoader(
-        src_dataset,
-        batch_size=1,
-        num_workers=args.num_workers,
-        shuffle=False,
-        pin_memory=True,
-        drop_last=True,
+        src_dataset, batch_size=64, num_workers=args.num_workers, shuffle=False, pin_memory=True,
     )
     dst_loader = DataLoader(
-        dst_dataset,
-        batch_size=1,
-        num_workers=args.num_workers,
-        shuffle=False,
-        pin_memory=True,
-        drop_last=True,
+        dst_dataset, batch_size=64, num_workers=args.num_workers, shuffle=False, pin_memory=True,
     )
 
     # Model
@@ -83,23 +73,24 @@ def main():
     ckpt = torch.load(os.path.join(exp_dir_path, "save", "final.ckpt"))
     encoder.load_state_dict(ckpt["encoder"])
     decoder.load_state_dict(ckpt["decoder"])
-    encoder.eval()
-    decoder.eval()
 
     with torch.no_grad():
-        pbar = tqdm(zip(src_loader, dst_loader))
+        pbar = tqdm(zip(src_loader, dst_loader), total=len(src_loader))
         for (src_data, src_name), (dst_data, dst_name) in pbar:
             src_data = src_data.to(device)
 
             latent = encoder(src_data, mode="AB")
             pred_img = decoder(latent)
 
-            save_image(
-                (pred_img + 1.0) * 0.5, os.path.join(dst_dir_path, "pred", src_name[0]), padding=0,
-            )
-            save_image(
-                (dst_data + 1.0) * 0.5, os.path.join(dst_dir_path, "gt", dst_name[0]), padding=0,
-            )
+            pred_img = (pred_img + 1.0) * 0.5
+            dst_data = (dst_data + 1.0) * 0.5
+            for pred, dst, s_name, d_name in zip(pred_img, dst_data, src_name, dst_name):
+                save_image(
+                    pred, os.path.join(dst_dir_path, "pred", s_name), padding=0,
+                )
+                save_image(
+                    dst, os.path.join(dst_dir_path, "gt", d_name), padding=0,
+                )
 
 
 if __name__ == "__main__":
